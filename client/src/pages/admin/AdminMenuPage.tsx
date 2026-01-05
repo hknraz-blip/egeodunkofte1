@@ -1,57 +1,79 @@
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { trpc } from "@/lib/trpc";
-import { useState } from "react";
 import { toast } from "sonner";
-import { Loader2, Trash2, Edit2 } from "lucide-react";
+import { Trash2, Edit2 } from "lucide-react";
 
-const CATEGORIES = ["Ana Yemekler", "Çorbalar", "İçecekler", "Tatlılar"];
+const CATEGORIES = ["Ana Yemekler", "Çorbalar", "İçecekler", "Tatlılar"] as const;
+
+type Category = (typeof CATEGORIES)[number];
+
+type MenuItem = {
+  id: number;
+  name: string;
+  description: string;
+  category: Category;
+  price: number;
+};
+
+const DEFAULT_MENU: MenuItem[] = [
+  {
+    id: 1,
+    name: "Odun Köfte",
+    description: "Özel baharatlarla hazırlanan ızgara köfte",
+    category: "Ana Yemekler",
+    price: 280,
+  },
+  {
+    id: 2,
+    name: "Közlenmiş Biber",
+    description: "Izgarada közlenmiş taze biber",
+    category: "Tatlılar",
+    price: 65,
+  },
+  {
+    id: 3,
+    name: "Ayran",
+    description: "Geleneksel ev yapımı ayran",
+    category: "İçecekler",
+    price: 35,
+  },
+];
 
 export default function AdminMenuPage() {
-  const { data: menuItems, isLoading, refetch } = trpc.admin.menu.list.useQuery();
-  const createMutation = trpc.admin.menu.create.useMutation();
-  const updateMutation = trpc.admin.menu.update.useMutation();
-  const deleteMutation = trpc.admin.menu.delete.useMutation();
-
+  const [menuItems, setMenuItems] = useState<MenuItem[]>(DEFAULT_MENU);
   const [formData, setFormData] = useState({
     name: "",
     description: "",
-    category: "Ana Yemekler",
+    category: "Ana Yemekler" as Category,
     price: "",
   });
 
-  const handleAddItem = async () => {
+  const handleAddItem = () => {
     if (!formData.name || !formData.price || !formData.category) {
       toast.error("Lütfen tüm zorunlu alanları doldurunuz");
       return;
     }
 
-    try {
-      await createMutation.mutateAsync({
-        name: formData.name,
-        description: formData.description,
-        category: formData.category,
-        price: parseInt(formData.price),
-      });
-      toast.success("Menü öğesi başarıyla eklendi");
-      setFormData({ name: "", description: "", category: "Ana Yemekler", price: "" });
-      refetch();
-    } catch (error) {
-      toast.error("Menü öğesi eklenirken hata oluştu");
-    }
+    const newItem: MenuItem = {
+      id: Date.now(),
+      name: formData.name,
+      description: formData.description,
+      category: formData.category,
+      price: parseInt(formData.price, 10),
+    };
+
+    setMenuItems((prev) => [...prev, newItem]);
+    toast.success("Menü öğesi başarıyla eklendi");
+    setFormData({ name: "", description: "", category: "Ana Yemekler", price: "" });
   };
 
-  const handleDeleteItem = async (id: number) => {
-    try {
-      await deleteMutation.mutateAsync({ id });
-      toast.success("Menü öğesi başarıyla silindi");
-      refetch();
-    } catch (error) {
-      toast.error("Menü öğesi silinirken hata oluştu");
-    }
+  const handleDeleteItem = (id: number) => {
+    setMenuItems((prev) => prev.filter((item) => item.id !== id));
+    toast.success("Menü öğesi başarıyla silindi");
   };
 
   return (
@@ -74,7 +96,7 @@ export default function AdminMenuPage() {
             </div>
             <div>
               <Label htmlFor="category">Kategori *</Label>
-              <Select value={formData.category} onValueChange={(value) => setFormData({ ...formData, category: value })}>
+              <Select value={formData.category} onValueChange={(value) => setFormData({ ...formData, category: value as Category })}>
                 <SelectTrigger id="category">
                   <SelectValue />
                 </SelectTrigger>
@@ -107,10 +129,7 @@ export default function AdminMenuPage() {
               onChange={(e) => setFormData({ ...formData, price: e.target.value })}
             />
           </div>
-          <Button onClick={handleAddItem} disabled={createMutation.isPending}>
-            {createMutation.isPending ? <Loader2 className="animate-spin mr-2" size={16} /> : null}
-            Ekle
-          </Button>
+          <Button onClick={handleAddItem}>Ekle</Button>
         </CardContent>
       </Card>
 
@@ -120,11 +139,7 @@ export default function AdminMenuPage() {
           <CardTitle>Menü Öğeleri</CardTitle>
         </CardHeader>
         <CardContent>
-          {isLoading ? (
-            <div className="flex justify-center py-8">
-              <Loader2 className="animate-spin" size={32} />
-            </div>
-          ) : !menuItems || menuItems.length === 0 ? (
+          {menuItems.length === 0 ? (
             <p className="text-center text-muted-foreground py-8">Henüz menü öğesi eklenmemiş</p>
           ) : (
             <div className="space-y-3">
@@ -142,12 +157,7 @@ export default function AdminMenuPage() {
                     <Button variant="ghost" size="sm">
                       <Edit2 size={16} />
                     </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => handleDeleteItem(item.id)}
-                      disabled={deleteMutation.isPending}
-                    >
+                    <Button variant="ghost" size="sm" onClick={() => handleDeleteItem(item.id)}>
                       <Trash2 size={16} className="text-red-500" />
                     </Button>
                   </div>
