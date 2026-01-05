@@ -1,19 +1,9 @@
 services:
-  - type: web
-    name: ege-odun-kofte
-    runtime: node
-    plan: free
-    buildCommand: pnpm install && pnpm build
-    startCommand: pnpm start
+  - type: static
+    name: ege-odun-kofte-frontend
+    buildCommand: corepack enable && pnpm install --frozen-lockfile && pnpm build
+    staticPublishPath: dist/public
     envVars:
-      - key: NODE_ENV
-        value: production
-      - key: DATABASE_URL
-        fromDatabase:
-          name: ege-odun-kofte-db
-          property: connectionString
-      - key: JWT_SECRET
-        generateValue: true
       - key: VITE_APP_TITLE
         value: "Ege Odun Köfte 1969"
       - key: VITE_APP_LOGO
@@ -30,21 +20,15 @@ services:
         value: ""
       - key: VITE_OAUTH_PORTAL_URL
         value: ""
-      - key: BUILT_IN_FORGE_API_KEY
-        value: ""
-      - key: BUILT_IN_FORGE_API_URL
-        value: ""
-      - key: OAUTH_SERVER_URL
-        value: ""
       - key: OWNER_NAME
         value: "Ege Odun Köfte"
       - key: OWNER_OPEN_ID
         value: ""
-    healthCheckPath: /
-    maxInstanceCount: 1
-
-databases:
-  - name: ege-odun-kofte-db
-    databaseName: ege_odun_kofte
-    user: postgres
-    plan: free
+    routes:
+      - type: rewrite
+        source: "/*"
+        destination: "/index.html"
+    headers:
+      - path: "/*"
+        name: "Cache-Control"
+        value: "public, max-age=600"

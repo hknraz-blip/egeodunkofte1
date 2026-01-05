@@ -1,124 +1,109 @@
-import { Button } from "@/components/ui/button";
+import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { trpc } from "@/lib/trpc";
-import { Loader2, Check, X } from "lucide-react";
 import { toast } from "sonner";
+import { Loader2 } from "lucide-react";
 
-const STATUS_LABELS: Record<string, string> = {
-  pending: "Beklemede",
-  confirmed: "Onaylandı",
-  cancelled: "İptal Edildi",
-  completed: "Tamamlandı",
+type Reservation = {
+  id: number;
+  name: string;
+  phone: string;
+  date: string;
+  time: string;
+  guests: number;
+  status: "beklemede" | "onaylandi" | "iptal";
 };
 
-const STATUS_COLORS: Record<string, string> = {
-  pending: "bg-yellow-100 text-yellow-800",
-  confirmed: "bg-green-100 text-green-800",
-  cancelled: "bg-red-100 text-red-800",
-  completed: "bg-blue-100 text-blue-800",
-};
+const DEFAULT_RESERVATIONS: Reservation[] = [
+  {
+    id: 501,
+    name: "Elif Arslan",
+    phone: "0500 111 22 33",
+    date: "2024-12-01",
+    time: "19:30",
+    guests: 4,
+    status: "onaylandi",
+  },
+  {
+    id: 502,
+    name: "Kerem Baş",
+    phone: "0500 444 55 66",
+    date: "2024-12-02",
+    time: "20:00",
+    guests: 2,
+    status: "beklemede",
+  },
+];
 
 export default function AdminReservationsPage() {
-  const { data: reservations, isLoading, refetch } = trpc.admin.reservations.list.useQuery();
-  const updateStatusMutation = trpc.admin.reservations.updateStatus.useMutation();
+  const [reservations, setReservations] = useState<Reservation[]>(DEFAULT_RESERVATIONS);
+  const [updatingId, setUpdatingId] = useState<number | null>(null);
 
-  const handleStatusChange = async (reservationId: number, newStatus: string) => {
-    try {
-      await updateStatusMutation.mutateAsync({
-        id: reservationId,
-        status: newStatus as any,
-      });
-      toast.success("Rezervasyon durumu güncellendi");
-      refetch();
-    } catch (error) {
-      toast.error("Rezervasyon durumu güncellenirken hata oluştu");
-    }
+  const handleStatusChange = (id: number, status: Reservation["status"]) => {
+    setUpdatingId(id);
+    setReservations((prev) => prev.map((res) => (res.id === id ? { ...res, status } : res)));
+    toast.success("Rezervasyon durumu güncellendi");
+    setUpdatingId(null);
   };
 
-  return (
-    <div className="space-y-6">
+  if (!reservations?.length) {
+    return (
       <Card>
-        <CardHeader>
-          <CardTitle>Rezervasyonlar</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {isLoading ? (
-            <div className="flex justify-center py-8">
-              <Loader2 className="animate-spin" size={32} />
-            </div>
-          ) : !reservations || reservations.length === 0 ? (
-            <p className="text-center text-muted-foreground py-8">Henüz rezervasyon yok</p>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b">
-                    <th className="text-left py-3 px-4">Müşteri</th>
-                    <th className="text-left py-3 px-4">Telefon</th>
-                    <th className="text-left py-3 px-4">Kişi Sayısı</th>
-                    <th className="text-left py-3 px-4">Tarih/Saat</th>
-                    <th className="text-left py-3 px-4">Durum</th>
-                    <th className="text-left py-3 px-4">İşlemler</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {reservations.map((reservation) => (
-                    <tr key={reservation.id} className="border-b hover:bg-muted/50">
-                      <td className="py-3 px-4">{reservation.customerName}</td>
-                      <td className="py-3 px-4">{reservation.customerPhone}</td>
-                      <td className="py-3 px-4">{reservation.guestCount} kişi</td>
-                      <td className="py-3 px-4 text-xs">
-                        {new Date(reservation.reservationDate).toLocaleDateString("tr-TR")} 
-                        {" "}
-                        {new Date(reservation.reservationDate).toLocaleTimeString("tr-TR", { 
-                          hour: "2-digit", 
-                          minute: "2-digit" 
-                        })}
-                      </td>
-                      <td className="py-3 px-4">
-                        <Select value={reservation.status} onValueChange={(value) => handleStatusChange(reservation.id, value)}>
-                          <SelectTrigger className={`w-32 ${STATUS_COLORS[reservation.status]}`}>
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="pending">Beklemede</SelectItem>
-                            <SelectItem value="confirmed">Onaylandı</SelectItem>
-                            <SelectItem value="cancelled">İptal Edildi</SelectItem>
-                            <SelectItem value="completed">Tamamlandı</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </td>
-                      <td className="py-3 px-4">
-                        <div className="flex gap-2">
-                          {reservation.status === "pending" && (
-                            <>
-                              <Button 
-                                variant="ghost" 
-                                size="sm"
-                                onClick={() => handleStatusChange(reservation.id, "confirmed")}
-                              >
-                                <Check size={16} className="text-green-600" />
-                              </Button>
-                              <Button 
-                                variant="ghost" 
-                                size="sm"
-                                onClick={() => handleStatusChange(reservation.id, "cancelled")}
-                              >
-                                <X size={16} className="text-red-600" />
-                              </Button>
-                            </>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
+        <CardContent className="py-8 text-center text-muted-foreground">
+          Henüz rezervasyon bulunmuyor
         </CardContent>
       </Card>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      {reservations.map((reservation) => (
+        <Card key={reservation.id}>
+          <CardHeader className="flex flex-row items-start justify-between gap-4">
+            <div>
+              <CardTitle>{reservation.name}</CardTitle>
+              <p className="text-muted-foreground">{reservation.phone}</p>
+            </div>
+            <div className="text-right">
+              <p className="font-semibold">
+                {reservation.date} - {reservation.time}
+              </p>
+              <p className="text-muted-foreground text-sm">{reservation.guests} kişilik</p>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="space-y-2">
+              <p className="text-sm font-medium">Durum</p>
+              <Select
+                value={reservation.status}
+                onValueChange={(value) => handleStatusChange(reservation.id, value as Reservation["status"])}
+                disabled={updatingId === reservation.id}
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="beklemede">Beklemede</SelectItem>
+                  <SelectItem value="onaylandi">Onaylandı</SelectItem>
+                  <SelectItem value="iptal">İptal</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <Button variant="secondary" className="w-full" disabled={updatingId === reservation.id}>
+              {updatingId === reservation.id ? (
+                <span className="inline-flex items-center gap-2">
+                  <Loader2 className="animate-spin" size={16} /> Kaydediliyor
+                </span>
+              ) : (
+                "Durumu Güncelle"
+              )}
+            </Button>
+          </CardContent>
+        </Card>
+      ))}
     </div>
   );
 }
